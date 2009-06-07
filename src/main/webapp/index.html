@@ -1,5 +1,106 @@
 <lift:surround with="default" at="content">
-		<h2>Welcome to your project!</h2>
-		<p><lift:helloWorld.howdy /></p>
+<head>
+<style type="text/css">
+/*<![CDATA[*/
+    #board
+    {
+        border: 1px solid black;
+        position: relative;
+        width: 500px;
+        height: 500px;
+    }
+    
+    .piece
+    {
+        position: absolute;
+    }
+/*]]>*/
+</style>
+</head>
+<div id="board">
+</div>
+<script type="text/javascript">
+//<![CDATA[
+(function(api) {
+    var _width = 120 * 3 / 4, _height = 100;
+    var _dir = ['a', 'b', 'c', 'd', 'e', 'f', 'z'];
+    var _cartesianOffset = { 'a': { x: 0,       y: _height,      z: 0 },
+                             'b': { x: _width,  y: _height / 2,  z: 0 },
+                             'c': { x: _width,  y: -_height / 2, z: 0 },
+                             'd': { x: 0,       y: -_height,     z: 0 },
+                             'e': { x: -_width, y: -_height / 2, z: 0 },
+                             'f': { x: -_width, y: _height / 2,  z: 0 },
+                             'z': { x: 0,       y: 0,            z: 1 } };
+    
+    var getNeighbors = function(pos) {
+        return { 'a': { x: pos.x,     y: pos.y + 1, z: pos.z },
+                 'b': { x: pos.x + 1, y: pos.y,     z: pos.z },
+                 'c': { x: pos.x + 1, y: pos.y - 1, z: pos.z },
+                 'd': { x: pos.x,     y: pos.y - 1, z: pos.z },
+                 'e': { x: pos.x - 1, y: pos.y,     z: pos.z },
+                 'f': { x: pos.x - 1, y: pos.y + 1, z: pos.z },
+                 'z': { x: pos.x,     y: pos.y,     z: pos.z + 1 } };
+    };
+    
+    var serializePosition = function(pos) { return [pos.x, pos.y, pos.z].join(","); };
+    var deserializePosition = function(pos) {
+        var temp = pos.split(",");
+        return { x: Number(temp[0]), y: Number(temp[1]), z: Number(temp[2]) };
+    };
+    
+    var drawBoard = function(board) {
+        var beenDrawn = {};
+        
+        var drawHex = function(point) {
+            $("<img>")
+                .addClass("piece")
+                .attr("src", "pics/hex.png")
+                .css({ left: point.x, top: point.y, zIndex: point.z })
+                .appendTo("#board");
+        };
+        
+        var drawHelper = function(pos, point) {
+            var serialPos = serializePosition(pos);
+            
+            if(beenDrawn[serialPos]) { return; }
+            
+            if(!board[serialPos]) { return; }
+            
+            drawHex(point);
+            beenDrawn[serialPos] = true;
+            
+            var neighbors = getNeighbors(pos);
+            for(var dir in neighbors) {
+                var offset = _cartesianOffset[dir];
+                drawHelper(neighbors[dir], { x: point.x + offset.x, y: point.y + offset.y });
+            }
+        };
+        
+        for(var pos in board) {
+            drawHelper(deserializePosition(pos), { x: 180, y: 180 });
+            break;
+        }
+    };
+    
+    drawBoard(api.board);
+})({
+  'board': 
+  {
+    '0,0,0': ['bee', 'white', '1'], 
+    '1,0,0': ['beetle', 'black', '1']
+  },
+  'hand':
+  {
+    'black': { 'ant': 3, 'spider': 2, 'beetle': 1, 'grasshopper': 3, 'bee': 1 },
+    'white': { 'ant': 3, 'spider': 2, 'beetle': 2, 'grasshopper': 3 }
+  },
+  'turn-num': 3,
+  'turn': 'white',
+  'game-id': '39A2C',
+  'timeout': 30,
+  'text': 'your turn'
+});
+//]]>
+</script>
 </lift:surround>
 
