@@ -25,57 +25,81 @@
 </div>
 <script type="text/javascript">
 //<![CDATA[
-(function(api) {
+var hive = (function() {
+    var _hive = {};
+    
     var _width = 92 * 3 / 4, _height = 80;
-    var _cartesianOffset = { 'a': { x: 0,       y: _height,      z: 0 },
-                             'b': { x: _width,  y: _height / 2,  z: 0 },
-                             'c': { x: _width,  y: -_height / 2, z: 0 },
-                             'd': { x: 0,       y: -_height,     z: 0 },
-                             'e': { x: -_width, y: -_height / 2, z: 0 },
-                             'f': { x: -_width, y: _height / 2,  z: 0 },
-                             'z': { x: 0,       y: 0,            z: 1 } };
+    var _cartesianOffset = { '0': { x: 0,       y: _height },
+                             '1': { x: _width,  y: _height / 2 },
+                             '2': { x: _width,  y: -_height / 2 },
+                             '3': { x: 0,       y: -_height },
+                             '4': { x: -_width, y: -_height / 2 },
+                             '5': { x: -_width, y: _height / 2 } };
+    var _gameState = { 'board': { },
+                       'hand':
+                       {
+                         'black': { 'ant': 3, 'spider': 2, 'beetle': 2, 'grasshopper': 3, 'bee': 1 },
+                         'white': { 'ant': 3, 'spider': 2, 'beetle': 2, 'grasshopper': 3, 'bee': 1 }
+                       },
+                       'turn-num': 1,
+                       'turn': 'white',
+                       'game-id': String(Math.floor(Math.random() * 1000000)),
+                       'timeout': 30,
+                       'text': '' };
+    var _pieceInfo = { };
     
     var getNeighbors = function(pos) {
-        return { 'a': { x: pos.x,     y: pos.y + 1, z: pos.z },
-                 'b': { x: pos.x + 1, y: pos.y,     z: pos.z },
-                 'c': { x: pos.x + 1, y: pos.y - 1, z: pos.z },
-                 'd': { x: pos.x,     y: pos.y - 1, z: pos.z },
-                 'e': { x: pos.x - 1, y: pos.y,     z: pos.z },
-                 'f': { x: pos.x - 1, y: pos.y + 1, z: pos.z },
-                 'z': { x: pos.x,     y: pos.y,     z: pos.z + 1 } };
+        return { '0': { x: pos.x,     y: pos.y + 1 },
+                 '1': { x: pos.x + 1, y: pos.y },
+                 '2': { x: pos.x + 1, y: pos.y - 1 },
+                 '3': { x: pos.x,     y: pos.y - 1 },
+                 '4': { x: pos.x - 1, y: pos.y },
+                 '5': { x: pos.x - 1, y: pos.y + 1 } };
     };
     
-    var serializePosition = function(pos) { return [pos.x, pos.y, pos.z].join(","); };
-    var deserializePosition = function(pos) {
-        var temp = pos.split(",");
-        return { x: Number(temp[0]), y: Number(temp[1]), z: Number(temp[2]) };
-    };
+    var serializePos = function(pos) { return [ pos.x, pos.y ].join(","); }
+    
+    var validateRequest = function(request) { return true; };
+    
+    var validateReply = function(reply) { return true; };
+    
+    var drawHex = (function() {
+        spriteX = { 'bee': '0px ', 'beetle': '-90px ', 'grasshopper': '-181px ', 
+                    'ant': '-272px ', 'spider': '-363px ', 'mosquito': '-454px ' };
+        spriteY = { 'white': '-81px', 'black': '0px' };
+        
+        return function(tile, position, point) {
+            var serialTile = tile.join(",");
+            var info = _pieceInfo[serialTile] || { elem: $("<div>"), pos: {}, pnt: {} };
+            info.elem
+                .addClass("piece")
+                .css({ left: point.x, top: point.y, 'z-index': point.z, 
+                       'background-position': spriteX[tile[0]] + spriteY[tile[1]] })
+                .appendTo("#board");
+            
+            position.z = point.z;
+            info.pos =  position;
+            info.pnt = point;
+            _pieceInfo[serialTile] = info;
+        };
+    })();
     
     var drawBoard = function(board) {
         var beenDrawn = {};
         
-        var drawHex = (function() {
-            spriteX = { 'bee': '0px ', 'beetle': '-90px ', 'grasshopper': '-181px ', 
-                        'ant': '-272px ', 'spider': '-363px ', 'mosquito': '-454px ' };
-            spriteY = { 'white': '-80px', 'black': '0px' };
-            
-            return function(point, tile) {
-                $("<div>")
-                    .addClass("piece")
-                    .css({ left: point.x, top: point.y, 'z-index': point.z, 
-                           'background-position': spriteX[tile[0]] + spriteY[tile[1]] })
-                    .appendTo("#board");
-            };
-        })();
-        
         var drawHelper = function(pos, point) {
-            var serialPos = serializePosition(pos);
+            var serialPos = serializePos(pos);
             
             if(beenDrawn[serialPos]) { return; }
             
             if(!board[serialPos]) { return; }
             
-            drawHex(point, board[serialPos]);
+            if(board[serialPos].length < 1) { return; }
+            
+            for(var i = 0; i < board[serialPos].length; i++) {
+                point.z = i;
+                drawHex(board[serialPos][i], pos, point); 
+            }
             beenDrawn[serialPos] = true;
             
             var neighbors = getNeighbors(pos);
@@ -85,20 +109,81 @@
             }
         };
         
+        $("#board").empty();
         for(var pos in board) {
-            drawHelper(deserializePosition(pos), { x: 180, y: 180 });
+            var temp = pos.split(",");
+            drawHelper({ x: Number(temp[0]), y: Number(temp[1]) }, { x: 120, y: 120 });
             break;
         }
     };
     
-    drawBoard(api.board);
-})({
+    var drawUpdate = function(piece, position) {
+        var serialPos;
+        var neighbors = getNeighbors(position);
+        var occDir;
+        for(var dir in neighbors) {
+            serialPos = serializePos(neighbors[dir]);
+            if(_gameState.board[serialPos] && _gameState.board[serialPos].length > 0) {
+                occDir = dir;
+                break;
+            }
+        }
+        
+        var occPoint = _pieceInfo[_gameState.board[serialPos][0]].pnt;
+        var reversedDir = String((Number(occDir) + 3) % 6);
+        var offset = _cartesianOffset[reversedDir];
+        
+        drawHex(piece, position, { x: occPoint.x + offset.x, y: occPoint.y + offset.y });
+    };
+    
+    // Takes a request API
+    _hive.set = function(request) {
+        if (!validateRequest(request)) { window.alert("Invalid request. You win!"); }
+        
+        _gameState = request;
+        drawBoard(request.board);
+    };
+    
+    // Takes a reply API
+    _hive.update = function(reply) {
+        if (!validateReply(reply)) { window.alert("Invalid reply. You win!"); }
+        
+        var temp = reply.position.split(",");
+        var pos = { x: Number(temp[0]), y: Number(temp[1]), z: Number(temp[2]) };
+        
+        var serialPos = serializePos(pos);
+        if(!_gameState.board[serialPos]) { _gameState.board[serialPos] = []; }
+        
+        if (reply.action == 'place') {
+            _gameState.board[serialPos][pos.z] = reply.piece;
+        } 
+        else if (reply.action == 'move') {
+            var oldPos = _pieceInfo[reply.piece.join(",")].pos;
+            var serialOldPos = serializePos(oldPos);
+            
+            _gameState.board[serialOldPos].splice(oldPos.z, 1);
+            if(_gameState.board[serialOldPos].length < 1) { delete _gameState.board[serialOldPos]; }
+            
+            _gameState.board[serialPos][pos.z] = reply.piece;
+        }
+        
+        drawUpdate(reply.piece, pos);
+    };
+    
+    // Returns a request API
+    _hive.export = function() {
+        return _gameState;
+    };
+    
+    return _hive;
+})();
+hive.set({
   'board': 
   {
-    '0,0,0': ['bee', 'white', '1'], 
-    '1,0,0': ['beetle', 'white', '1'],
-    '0,1,0': ['ant', 'black', '1'],
-    '1,1,0': ['beetle', 'black', '1']
+    '0,0': [ ['bee', 'white', '1'], [ 'ant', 'white', '1'] ], 
+    '1,0': [ ['beetle', 'white', '1'] ],
+    '0,1': [ ['ant', 'black', '1'] ],
+    '1,1': [ ['beetle', 'black', '1'] ]
   },
   'hand':
   {
@@ -110,6 +195,22 @@
   'game-id': '39A2C',
   'timeout': 30,
   'text': 'your turn'
+});
+
+hive.update({
+  'action': 'place',
+  'game-id': '39A2C',
+  'position': '0,2,0',
+  'piece': ['beetle', 'black', '2'],
+  'text': "Eat it!"
+});
+
+hive.update({
+  'action': 'move',
+  'game-id': '39A2C',
+  'position': '2,0,0',
+  'piece': ['beetle', 'white', '1'],
+  'text': "Eat it!"
 });
 //]]>
 </script>
